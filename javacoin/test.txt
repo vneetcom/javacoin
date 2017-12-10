@@ -1,0 +1,5 @@
+http://localhost:5001/javacoin/mine
+http://localhost:5000/javacoin/nodes_resolve
+
+curl -X POST -H "Content-Type: application/json" -d "{ 'sender': 'someone-address', 'recipient': 'someone-other-address', 'amount': 5}" "http://localhost:5000/javacoin/transactions_new"
+curl -X POST -H "Content-Type: application/json" -d "{ 'nodes': ['http://localhost:5001']}" "http://localhost:5000/javacoin/nodes_register"
