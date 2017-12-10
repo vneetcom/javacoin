@@ -20,22 +20,17 @@ import org.json.JSONObject;
 @Path("/javacoin")
 public class EntryPoint {
 
-	// このノードのグローバルにユニークなアドレスを作る
-	String node_identifire = null;
+	// Generate a globally unique address for this node
+	String node_identifire = null; // TODO
 	
-	// ブロックチェーンクラスをインスタンス化する
+	// Instantiate the Blockchain
 	Blockchain blockchain = Blockchain.getInstance();
 	
-	/**
-	 * メソッドはGETで/mineエンドポイントを作る
-	 * @return
-	 * @throws Exception 
-	 */
     @GET
     @Path("mine")
     @Produces(MediaType.APPLICATION_JSON)
     public String mine() throws Exception {
-    	// 次のプルーフを見つけるためプルーフ・オブ・ワークアルゴリズムを使用する
+    	// We run the proof of work algorithm to get the next proof...
     	JSONObject last_block = blockchain.last_block();
     	
     	int proof=0;
@@ -44,12 +39,13 @@ public class EntryPoint {
 	    	proof = blockchain.proof_of_work(last_proof);
     	}
     	
-    	// プルーフを見つけたことに対する報酬を得る
-    	// 送信者は、採掘者が新しいコインを採掘したことを表すために"0"とする
+    	// We must receive a reward for finding the proof.
+    	// The sender is "0" to signify that this node has mined a new coin.
     	blockchain.new_transaction("0", node_identifire, 1);
     	
-    	// チェーンに新しいブロックを加えることで、新しいブロックを採掘する
-    	JSONObject block = blockchain.new_block(proof, null);
+    	// Forge the new Block by adding it to the chain
+    	String previous_hash = Blockchain.hash(last_block);
+    	JSONObject block = blockchain.new_block(proof, previous_hash);
     	
     	JSONObject response = new JSONObject();
     	response.put("message","Mined new block");
@@ -60,11 +56,6 @@ public class EntryPoint {
         return response.toString();
     }
     
-    /**
-     * メソッドはPOSTで/transactions/newエンドポイントを作る。メソッドはPOSTなのでデータを送信する
-     * @return
-     * @throws Exception
-     */
     @POST
     @Path("transactions_new")
     @Produces(MediaType.APPLICATION_JSON)
@@ -74,39 +65,34 @@ public class EntryPoint {
 
     	JSONObject values = requestParamsToJSON(request);
 
-    	// POSTされたデータに必要なデータがあるかを確認
+    	// Check that the required fields are in the POST'ed data
     	if(
     		values.get("sender") == null ||
     		values.get("recipient") == null ||
     		values.get("amount") == null
     	){
-    		return "Missing values"; // TODO return code 400
+    		return "Missing values";
     	}
     
-    	// 新しいトランザクションを作る
+    	// Create a new Transaction
     	int index = blockchain.new_transaction(
     			(String) values.get("sender"), 
     			(String) values.get("recipient"), 
     			(int) values.get("amount"));
     	
     	JSONObject response = new JSONObject();
-    	response.put("message", "The transaction is added into block "+index);
+    	response.put("message", "Transaction will be added to Block "+index);
     	return response.toString();
     	
     }
 
-	/**
-	 * メソッドはGETで、フルのブロックチェーンをリターンする/chainエンドポイントを作る
-	 * @return
-	 * @throws Exception 
-	 */
     @GET
     @Path("chain")
     @Produces(MediaType.APPLICATION_JSON)
     public String full_chain() throws Exception {
     	JSONObject response = new JSONObject();
     	response.put("chain", blockchain.chain);
-    	response.put("length", blockchain.chain.length()); // TODO: ?initial 1 or 0?
+    	response.put("length", blockchain.chain.length());
         return response.toString();
     }
     
@@ -123,7 +109,7 @@ public class EntryPoint {
     	List<Object> nodes = nodesArray.toList();
     	
     	if (nodes == null){
-    		return "Error: Incorrect node list."; // TODO: return code 400
+    		return "Error: Please supply a valid list of nodes";
     	}
 
     	for(Object node : nodes){
@@ -131,8 +117,8 @@ public class EntryPoint {
     	}
     	
     	JSONObject response = new JSONObject();
-    	response.put("message", "New node is added.");
-    	response.put("total_nodes", blockchain.nodes.size()); // TODO: ?initial 1 or 0?
+    	response.put("message", "New nodes have been added");
+    	response.put("total_nodes", blockchain.nodes.size());
     	return response.toString();
     	
     }
@@ -146,21 +132,16 @@ public class EntryPoint {
     	
     	JSONObject response = new JSONObject();
     	if(replaced){
-        	response.put("message", "chain is replaced.");
+        	response.put("message", "Our chain was replaced");
         	response.put("new_chain", blockchain.chain);
     	}else{
-        	response.put("message", "chain is confirmed.");
+        	response.put("message", "Our chain is authoritative");
         	response.put("chain", blockchain.chain);
     	}
         return response.toString();
     }    
     
 	private JSONObject requestParamsToJSON(HttpServletRequest request) throws Exception {
-
-		//https://stackoverflow.com/questions/7085545/how-to-convert-http-request-body-into-json-object-in-java
-//		https://stackoverflow.com/questions/33896136/read-json-message-from-http-post-request-in-java
-		// https://matome.naver.jp/odai/2137432732637566701
-		// https://stackoverflow.com/questions/7318632/java-lang-illegalstateexception-getreader-has-already-been-called-for-this-re
 		BufferedReader reader = new BufferedReader(new InputStreamReader(request.getInputStream()));
 		return new JSONObject(IOUtils.toString(reader));
 		
